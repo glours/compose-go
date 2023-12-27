@@ -100,7 +100,7 @@ type Secrets map[string]SecretConfig
 type Configs map[string]ConfigObjConfig
 
 // Extensions is a map of custom extension
-type Extensions map[string]interface{}
+type Extensions map[string]any
 
 // MarshalJSON makes Config implement json.Marshaler
 func (c Config) MarshalJSON() ([]byte, error) {

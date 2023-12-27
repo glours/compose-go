@@ -43,6 +43,14 @@ check-schema:
 	curl -fSL -o schema/compose-spec.json https://raw.githubusercontent.com/compose-spec/compose-spec/master/schema/compose-spec.json
 	git diff --exit-code schema/compose-spec.json
 
+.PHONY: build-deepcopy-gen
+build-deepcopy-gen:
+	docker build -f ./codegen/Dockerfile -t composespec/deepcopy .
+
+.PHONY: deepcopy-gen
+deepcopy-gen: build-deepcopy-gen
+	docker run --rm -v $(PWD):/src composespec/deepcopy
+
 .PHONY: setup
 setup: ## Setup the precommit hook
 	@which pre-commit > /dev/null 2>&1 || (echo "pre-commit not installed see README." && false)
