@@ -34,7 +34,6 @@ import (
 )
 
 // Project is the result of loading a set of compose files
-// +k8s:deepcopy-gen=true
 type Project struct {
 	Name       string     `yaml:"name,omitempty" json:"name,omitempty"`
 	WorkingDir string     `yaml:"-" json:"-"`

@@ -57,6 +57,10 @@ func (cd ConfigDetails) LookupEnv(key string) (string, bool) {
 	return "", false
 }
 
+type ConfigInterface interface {
+	DeepCopyConfigInterface() ConfigInterface
+}
+
 // ConfigFile is a filename and the contents of the file as a Dict
 type ConfigFile struct {
 	// Filename is the name of the yaml configuration file
@@ -64,7 +68,7 @@ type ConfigFile struct {
 	// Content is the raw yaml content. Will be loaded from Filename if not set
 	Content []byte
 	// Config if the yaml tree for this config file. Will be parsed from Content if not set
-	Config map[string]interface{}
+	Config map[string]ConfigInterface
 }
 
 func ToConfigFiles(path []string) (f []ConfigFile) {
@@ -99,12 +103,17 @@ type Secrets map[string]SecretConfig
 // Configs is a map of ConfigObjConfig
 type Configs map[string]ConfigObjConfig
 
+type ExtensionsInterface interface {
+	DeepCopyExtensionsInterface() ExtensionsInterface
+}
+
 // Extensions is a map of custom extension
-type Extensions map[string]any
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+type Extensions map[string]ExtensionsInterface
 
 // MarshalJSON makes Config implement json.Marshaler
 func (c Config) MarshalJSON() ([]byte, error) {
-	m := map[string]interface{}{
+	m := map[string]any{
 		"services": c.Services,
 	}
 

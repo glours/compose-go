@@ -24,6 +24,7 @@ import (
 )
 
 // Duration is a thin wrapper around time.Duration with improved JSON marshalling
+// +k8s:deepcopy-gen=false
 type Duration time.Duration
 
 func (d Duration) String() string {

@@ -17,6 +17,7 @@
 package types
 
 // Services is a map of ServiceConfig
+// +k8s:deepcopy-gen=true
 type Services map[string]ServiceConfig
 
 // GetProfiles retrieve the profiles implicitly enabled by explicitly targeting selected services

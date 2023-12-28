@@ -21,6 +21,7 @@ import (
 )
 
 // HealthCheckConfig the healthcheck configuration for a service
+// +k8s:deepcopy-gen=true
 type HealthCheckConfig struct {
 	Test          HealthCheckTest `yaml:"test,omitempty" json:"test,omitempty"`
 	Timeout       *Duration       `yaml:"timeout,omitempty" json:"timeout,omitempty"`
@@ -34,6 +35,7 @@ type HealthCheckConfig struct {
 }
 
 // HealthCheckTest is the command run to test the health of a service
+// +k8s:deepcopy-gen=true
 type HealthCheckTest []string
 
 func (l *HealthCheckTest) DecodeMapstructure(value interface{}) error {

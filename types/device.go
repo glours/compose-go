@@ -23,6 +23,7 @@ import (
 	"github.com/pkg/errors"
 )
 
+// +k8s:deepcopy-gen=true
 type DeviceRequest struct {
 	Capabilities []string    `yaml:"capabilities,omitempty" json:"capabilities,omitempty"`
 	Driver       string      `yaml:"driver,omitempty" json:"driver,omitempty"`

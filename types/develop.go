@@ -16,6 +16,7 @@
 
 package types
 
+// +k8s:deepcopy-gen=true
 type DevelopConfig struct {
 	Watch []Trigger `json:"watch,omitempty"`
 }
@@ -28,6 +29,7 @@ const (
 	WatchActionSyncRestart WatchAction = "sync+restart"
 )
 
+// +k8s:deepcopy-gen=true
 type Trigger struct {
 	Path   string      `json:"path,omitempty"`
 	Action WatchAction `json:"action,omitempty"`

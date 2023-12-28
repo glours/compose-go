@@ -26,6 +26,7 @@ import (
 )
 
 // ServiceConfig is the configuration of one service
+// +k8s:deepcopy-gen=true
 type ServiceConfig struct {
 	Name     string   `yaml:"name,omitempty" json:"-"`
 	Profiles []string `yaml:"profiles,omitempty" json:"profiles,omitempty"`
@@ -264,6 +265,7 @@ func (s set) toSlice() []string {
 }
 
 // BuildConfig is a type for build
+// +k8s:deepcopy-gen=true
 type BuildConfig struct {
 	Context            string                    `yaml:"context,omitempty" json:"context,omitempty"`
 	Dockerfile         string                    `yaml:"dockerfile,omitempty" json:"dockerfile,omitempty"`
@@ -291,6 +293,7 @@ type BuildConfig struct {
 }
 
 // BlkioConfig define blkio config
+// +k8s:deepcopy-gen=true
 type BlkioConfig struct {
 	Weight          uint16           `yaml:"weight,omitempty" json:"weight,omitempty"`
 	WeightDevice    []WeightDevice   `yaml:"weight_device,omitempty" json:"weight_device,omitempty"`
@@ -303,6 +306,7 @@ type BlkioConfig struct {
 }
 
 // WeightDevice is a structure that holds device:weight pair
+// +k8s:deepcopy-gen=true
 type WeightDevice struct {
 	Path   string
 	Weight uint16
@@ -311,6 +315,7 @@ type WeightDevice struct {
 }
 
 // ThrottleDevice is a structure that holds device:rate_per_second pair
+// +k8s:deepcopy-gen=true
 type ThrottleDevice struct {
 	Path string
 	Rate UnitBytes
@@ -323,6 +328,7 @@ type ThrottleDevice struct {
 type MappingWithColon map[string]string
 
 // LoggingConfig the logging configuration for a service
+// +k8s:deepcopy-gen=true
 type LoggingConfig struct {
 	Driver  string  `yaml:"driver,omitempty" json:"driver,omitempty"`
 	Options Options `yaml:"options,omitempty" json:"options,omitempty"`
@@ -331,6 +337,7 @@ type LoggingConfig struct {
 }
 
 // DeployConfig the deployment configuration for a service
+// +k8s:deepcopy-gen=true
 type DeployConfig struct {
 	Mode           string         `yaml:"mode,omitempty" json:"mode,omitempty"`
 	Replicas       *int           `yaml:"replicas,omitempty" json:"replicas,omitempty"`
@@ -346,6 +353,7 @@ type DeployConfig struct {
 }
 
 // UpdateConfig the service update configuration
+// +k8s:deepcopy-gen=true
 type UpdateConfig struct {
 	Parallelism     *uint64  `yaml:"parallelism,omitempty" json:"parallelism,omitempty"`
 	Delay           Duration `yaml:"delay,omitempty" json:"delay,omitempty"`
@@ -358,6 +366,7 @@ type UpdateConfig struct {
 }
 
 // Resources the resource limits and reservations
+// +k8s:deepcopy-gen=true
 type Resources struct {
 	Limits       *Resource `yaml:"limits,omitempty" json:"limits,omitempty"`
 	Reservations *Resource `yaml:"reservations,omitempty" json:"reservations,omitempty"`
@@ -366,6 +375,7 @@ type Resources struct {
 }
 
 // Resource is a resource to be limited or reserved
+// +k8s:deepcopy-gen=true
 type Resource struct {
 	// TODO: types to convert from units and ratios
 	NanoCPUs         string            `yaml:"cpus,omitempty" json:"cpus,omitempty"`
@@ -379,6 +389,7 @@ type Resource struct {
 
 // GenericResource represents a "user defined" resource which can
 // only be an integer (e.g: SSD=3) for a service
+// +k8s:deepcopy-gen=true
 type GenericResource struct {
 	DiscreteResourceSpec *DiscreteGenericResource `yaml:"discrete_resource_spec,omitempty" json:"discrete_resource_spec,omitempty"`
 
@@ -389,6 +400,7 @@ type GenericResource struct {
 // as an integer
 // "Kind" is used to describe the Kind of a resource (e.g: "GPU", "FPGA", "SSD", ...)
 // Value is used to count the resource (SSD=5, HDD=3, ...)
+// +k8s:deepcopy-gen=true
 type DiscreteGenericResource struct {
 	Kind  string `json:"kind"`
 	Value int64  `json:"value"`
@@ -397,6 +409,7 @@ type DiscreteGenericResource struct {
 }
 
 // RestartPolicy the service restart policy
+// +k8s:deepcopy-gen=true
 type RestartPolicy struct {
 	Condition   string    `yaml:"condition,omitempty" json:"condition,omitempty"`
 	Delay       *Duration `yaml:"delay,omitempty" json:"delay,omitempty"`
@@ -407,6 +420,7 @@ type RestartPolicy struct {
 }
 
 // Placement constraints for the service
+// +k8s:deepcopy-gen=true
 type Placement struct {
 	Constraints []string               `yaml:"constraints,omitempty" json:"constraints,omitempty"`
 	Preferences []PlacementPreferences `yaml:"preferences,omitempty" json:"preferences,omitempty"`
@@ -416,6 +430,7 @@ type Placement struct {
 }
 
 // PlacementPreferences is the preferences for a service placement
+// +k8s:deepcopy-gen=true
 type PlacementPreferences struct {
 	Spread string `yaml:"spread,omitempty" json:"spread,omitempty"`
 
@@ -423,6 +438,7 @@ type PlacementPreferences struct {
 }
 
 // ServiceNetworkConfig is the network configuration for a service
+// +k8s:deepcopy-gen=true
 type ServiceNetworkConfig struct {
 	Priority     int      `yaml:"priority,omitempty" json:"priority,omitempty"`
 	Aliases      []string `yaml:"aliases,omitempty" json:"aliases,omitempty"`
@@ -435,6 +451,7 @@ type ServiceNetworkConfig struct {
 }
 
 // ServicePortConfig is the port configuration for a service
+// +k8s:deepcopy-gen=true
 type ServicePortConfig struct {
 	Mode      string `yaml:"mode,omitempty" json:"mode,omitempty"`
 	HostIP    string `yaml:"host_ip,omitempty" json:"host_ip,omitempty"`
@@ -485,6 +502,7 @@ func convertPortToPortConfig(port nat.Port, portBindings map[nat.Port][]nat.Port
 }
 
 // ServiceVolumeConfig are references to a volume used by a service
+// +k8s:deepcopy-gen=true
 type ServiceVolumeConfig struct {
 	Type        string               `yaml:"type,omitempty" json:"type,omitempty"`
 	Source      string               `yaml:"source,omitempty" json:"source,omitempty"`
@@ -536,6 +554,7 @@ const (
 )
 
 // ServiceVolumeBind are options for a service volume of type bind
+// +k8s:deepcopy-gen=true
 type ServiceVolumeBind struct {
 	SELinux        string `yaml:"selinux,omitempty" json:"selinux,omitempty"`
 	Propagation    string `yaml:"propagation,omitempty" json:"propagation,omitempty"`
@@ -569,6 +588,7 @@ const (
 )
 
 // ServiceVolumeVolume are options for a service volume of type volume
+// +k8s:deepcopy-gen=true
 type ServiceVolumeVolume struct {
 	NoCopy bool `yaml:"nocopy,omitempty" json:"nocopy,omitempty"`
 
@@ -576,6 +596,7 @@ type ServiceVolumeVolume struct {
 }
 
 // ServiceVolumeTmpfs are options for a service volume of type tmpfs
+// +k8s:deepcopy-gen=true
 type ServiceVolumeTmpfs struct {
 	Size UnitBytes `yaml:"size,omitempty" json:"size,omitempty"`
 
@@ -585,6 +606,7 @@ type ServiceVolumeTmpfs struct {
 }
 
 // FileReferenceConfig for a reference to a swarm file object
+// +k8s:deepcopy-gen=true
 type FileReferenceConfig struct {
 	Source string  `yaml:"source,omitempty" json:"source,omitempty"`
 	Target string  `yaml:"target,omitempty" json:"target,omitempty"`
@@ -596,12 +618,15 @@ type FileReferenceConfig struct {
 }
 
 // ServiceConfigObjConfig is the config obj configuration for a service
+// +k8s:deepcopy-gen=true
 type ServiceConfigObjConfig FileReferenceConfig
 
 // ServiceSecretConfig is the secret configuration for a service
+// +k8s:deepcopy-gen=true
 type ServiceSecretConfig FileReferenceConfig
 
 // UlimitsConfig the ulimit configuration
+// +k8s:deepcopy-gen=true
 type UlimitsConfig struct {
 	Single int `yaml:"single,omitempty" json:"single,omitempty"`
 	Soft   int `yaml:"soft,omitempty" json:"soft,omitempty"`
@@ -634,6 +659,7 @@ func (u *UlimitsConfig) MarshalJSON() ([]byte, error) {
 }
 
 // NetworkConfig for a network
+// +k8s:deepcopy-gen=true
 type NetworkConfig struct {
 	Name       string     `yaml:"name,omitempty" json:"name,omitempty"`
 	Driver     string     `yaml:"driver,omitempty" json:"driver,omitempty"`
@@ -648,6 +674,7 @@ type NetworkConfig struct {
 }
 
 // IPAMConfig for a network
+// +k8s:deepcopy-gen=true
 type IPAMConfig struct {
 	Driver     string      `yaml:"driver,omitempty" json:"driver,omitempty"`
 	Config     []*IPAMPool `yaml:"config,omitempty" json:"config,omitempty"`
@@ -655,15 +682,17 @@ type IPAMConfig struct {
 }
 
 // IPAMPool for a network
+// +k8s:deepcopy-gen=true
 type IPAMPool struct {
-	Subnet             string                 `yaml:"subnet,omitempty" json:"subnet,omitempty"`
-	Gateway            string                 `yaml:"gateway,omitempty" json:"gateway,omitempty"`
-	IPRange            string                 `yaml:"ip_range,omitempty" json:"ip_range,omitempty"`
-	AuxiliaryAddresses Mapping                `yaml:"aux_addresses,omitempty" json:"aux_addresses,omitempty"`
-	Extensions         map[string]interface{} `yaml:",inline" json:"-"`
+	Subnet             string     `yaml:"subnet,omitempty" json:"subnet,omitempty"`
+	Gateway            string     `yaml:"gateway,omitempty" json:"gateway,omitempty"`
+	IPRange            string     `yaml:"ip_range,omitempty" json:"ip_range,omitempty"`
+	AuxiliaryAddresses Mapping    `yaml:"aux_addresses,omitempty" json:"aux_addresses,omitempty"`
+	Extensions         Extensions `yaml:",inline" json:"-"`
 }
 
 // VolumeConfig for a volume
+// +k8s:deepcopy-gen=true
 type VolumeConfig struct {
 	Name       string     `yaml:"name,omitempty" json:"name,omitempty"`
 	Driver     string     `yaml:"driver,omitempty" json:"driver,omitempty"`
@@ -678,6 +707,7 @@ type VolumeConfig struct {
 type External bool
 
 // CredentialSpecConfig for credential spec on Windows
+// +k8s:deepcopy-gen=true
 type CredentialSpecConfig struct {
 	Config     string     `yaml:"config,omitempty" json:"config,omitempty"` // Config was added in API v1.40
 	File       string     `yaml:"file,omitempty" json:"file,omitempty"`
@@ -686,6 +716,7 @@ type CredentialSpecConfig struct {
 }
 
 // FileObjectConfig is a config type for a file used by a service
+// +k8s:deepcopy-gen=true
 type FileObjectConfig struct {
 	Name           string            `yaml:"name,omitempty" json:"name,omitempty"`
 	File           string            `yaml:"file,omitempty" json:"file,omitempty"`
@@ -710,8 +741,10 @@ const (
 	ServiceConditionStarted = "service_started"
 )
 
+// +k8s:deepcopy-gen=true
 type DependsOnConfig map[string]ServiceDependency
 
+// +k8s:deepcopy-gen=true
 type ServiceDependency struct {
 	Condition  string     `yaml:"condition,omitempty" json:"condition,omitempty"`
 	Restart    bool       `yaml:"restart,omitempty" json:"restart,omitempty"`
@@ -719,17 +752,21 @@ type ServiceDependency struct {
 	Required   bool       `yaml:"required" json:"required"`
 }
 
+// +k8s:deepcopy-gen=true
 type ExtendsConfig struct {
 	File    string `yaml:"file,omitempty" json:"file,omitempty"`
 	Service string `yaml:"service,omitempty" json:"service,omitempty"`
 }
 
 // SecretConfig for a secret
+// +k8s:deepcopy-gen=true
 type SecretConfig FileObjectConfig
 
 // ConfigObjConfig is the config for the swarm "Config" object
+// +k8s:deepcopy-gen=true
 type ConfigObjConfig FileObjectConfig
 
+// +k8s:deepcopy-gen=true
 type IncludeConfig struct {
 	Path             StringList `yaml:"path,omitempty" json:"path,omitempty"`
 	ProjectDirectory string     `yaml:"project_directory,omitempty" json:"project_directory,omitempty"`
