@@ -18,8 +18,11 @@ package loader
 
 import (
 	"context"
+	"slices"
+	"strings"
 	"testing"
 
+	"github.com/compose-spec/compose-go/v2/schema"
 	"github.com/compose-spec/compose-go/v2/tree"
 	"github.com/compose-spec/compose-go/v2/types"
 	"gotest.tools/v3/assert"
@@ -44,7 +47,7 @@ func TestDetectUnsupportedAttributes_PathPresence(t *testing.T) {
 		{Path: tree.NewPath("services", "*", "deploy", "mode")},
 	}
 
-	findings := detectUnsupportedAttributes(dict, patterns)
+	findings := detectUnsupportedAttributes(dict, &UnsupportedAttributesCheck{Patterns: patterns})
 
 	assert.Assert(t, is.Len(findings, 1))
 	assert.Equal(t, findings[0].Path, tree.NewPath("services", "web", "deploy", "mode"))
@@ -75,7 +78,7 @@ func TestDetectUnsupportedAttributes_ValueConditional(t *testing.T) {
 		},
 	}
 
-	findings := detectUnsupportedAttributes(dict, patterns)
+	findings := detectUnsupportedAttributes(dict, &UnsupportedAttributesCheck{Patterns: patterns})
 
 	assert.Assert(t, is.Len(findings, 1))
 	assert.Equal(t, findings[0].Path, tree.NewPath("services", "web", "ports", "[]"))
@@ -93,7 +96,7 @@ func TestDetectUnsupportedAttributes_NoPatternsMatch(t *testing.T) {
 		{Path: tree.NewPath("services", "*", "deploy", "mode")},
 	}
 
-	findings := detectUnsupportedAttributes(dict, patterns)
+	findings := detectUnsupportedAttributes(dict, &UnsupportedAttributesCheck{Patterns: patterns})
 
 	assert.Assert(t, is.Len(findings, 0))
 }
@@ -116,7 +119,7 @@ func TestDetectUnsupportedAttributes_DoesNotDescendIntoMatchedNode(t *testing.T)
 		{Path: tree.NewPath("services", "*", "ports", "[]", "mode")},
 	}
 
-	findings := detectUnsupportedAttributes(dict, patterns)
+	findings := detectUnsupportedAttributes(dict, &UnsupportedAttributesCheck{Patterns: patterns})
 
 	assert.Assert(t, is.Len(findings, 1))
 	assert.Equal(t, findings[0].Path, tree.NewPath("services", "web", "ports", "[]"))
@@ -157,7 +160,7 @@ func TestDetectUnsupportedAttributes_AllPatternsAtSamePathAreEvaluated(t *testin
 		},
 	}
 
-	findings := detectUnsupportedAttributes(dict, patterns)
+	findings := detectUnsupportedAttributes(dict, &UnsupportedAttributesCheck{Patterns: patterns})
 
 	assert.Assert(t, is.Len(findings, 1))
 	assert.Equal(t, findings[0].Path, tree.NewPath("services", "web", "depends_on", "api"))
@@ -240,4 +243,124 @@ services:
 		assert.Assert(t, is.Len(reported, 1))
 		assert.Equal(t, reported[0].Path, tree.NewPath("services", "web", "deploy", "mode"))
 	})
+}
+
+// The allowlist side: the runtime declares the full specification inventory
+// minus what it does not implement, and the same report receives every
+// undeclared attribute — fail-closed, so a newly-specified attribute keeps
+// being reported until it is deliberately wired in.
+func TestDetectUnsupportedAttributes_SupportedAllowlist(t *testing.T) {
+	supported := slices.DeleteFunc(slices.Clone(schema.AttributePaths()), func(p tree.Path) bool {
+		return strings.HasPrefix(string(p), "services.*.credential_spec") ||
+			p == "services.*.deploy.update_config.failure_action" ||
+			p == "services.*.deploy.update_config.parallelism"
+	})
+
+	var reported []UnsupportedAttribute
+	_, err := LoadWithContext(context.Background(), types.ConfigDetails{
+		ConfigFiles: []types.ConfigFile{{Filename: "compose.yaml", Content: []byte(`
+services:
+  app:
+    image: myapp
+    environment:
+      DEBUG: "1"
+    deploy:
+      replicas: 2
+      update_config:
+        parallelism: 1
+        failure_action: rollback
+    credential_spec:
+      file: creds.json
+    x-custom:
+      anything: goes
+`)}},
+	}, func(options *Options) {
+		options.SetProjectName("screening", true)
+		options.ResolvePaths = false
+	}, WithSupportedAttributes(supported, func(found []UnsupportedAttribute) {
+		reported = found
+	}))
+	assert.NilError(t, err)
+
+	paths := make([]string, len(reported))
+	for i, f := range reported {
+		paths[i] = f.Path.String()
+	}
+	// subtree removal reports once at its root, leaf removal reports each
+	// leaf (declared siblings keep the descent open); x-* untouched
+	assert.DeepEqual(t, paths, []string{
+		"services.app.credential_spec",
+		"services.app.deploy.update_config.failure_action",
+		"services.app.deploy.update_config.parallelism",
+	})
+	assert.Equal(t, reported[1].Value, "rollback")
+}
+
+// Both rule sets feed one walk and one report: deny patterns (value
+// predicates included) and the allowlist compose.
+func TestDetectUnsupportedAttributes_CombinedRules(t *testing.T) {
+	dict := map[string]any{
+		"services": map[string]any{
+			"web": map[string]any{
+				"image": "nginx",
+				"ports": []any{
+					map[string]any{"target": 80, "mode": "host"},
+				},
+				"credential_spec": map[string]any{"file": "creds.json"},
+			},
+		},
+	}
+	check := &UnsupportedAttributesCheck{
+		Patterns: []UnsupportedAttributePattern{{
+			Path: tree.NewPath("services", "*", "ports", "[]", "mode"),
+			Detect: func(value any) bool {
+				return value == "host"
+			},
+		}},
+		Supported: slices.DeleteFunc(slices.Clone(schema.AttributePaths()), func(p tree.Path) bool {
+			return strings.HasPrefix(string(p), "services.*.credential_spec")
+		}),
+	}
+
+	findings := detectUnsupportedAttributes(dict, check)
+
+	assert.Assert(t, is.Len(findings, 2))
+	assert.Equal(t, findings[0].Path, tree.NewPath("services", "web", "credential_spec"))
+	assert.Equal(t, findings[1].Path, tree.NewPath("services", "web", "ports", "[]", "mode"))
+	assert.Equal(t, findings[1].Value, "host")
+}
+
+// A fully supported file passes the complete inventory silently: the
+// allowlist introduces no false positives on canonical forms.
+func TestDetectUnsupportedAttributes_AllowlistNoFalsePositives(t *testing.T) {
+	var reported []UnsupportedAttribute
+	_, err := LoadWithContext(context.Background(), types.ConfigDetails{
+		ConfigFiles: []types.ConfigFile{{Filename: "compose.yaml", Content: []byte(`
+services:
+  db:
+    image: mysql:8
+    volumes:
+      - data:/var/lib/mysql
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping"]
+      interval: 10s
+    deploy:
+      resources:
+        limits:
+          memory: 1g
+volumes:
+  data:
+networks:
+  backend:
+`)}},
+	}, func(options *Options) {
+		options.SetProjectName("clean", true)
+		options.ResolvePaths = false
+	}, WithSupportedAttributes(schema.AttributePaths(), func(found []UnsupportedAttribute) {
+		reported = found
+	}))
+	assert.NilError(t, err)
+	assert.Assert(t, is.Len(reported, 0))
 }

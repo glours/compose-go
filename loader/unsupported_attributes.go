@@ -19,6 +19,7 @@ package loader
 import (
 	"cmp"
 	"slices"
+	"strings"
 
 	"github.com/compose-spec/compose-go/v2/tree"
 )
@@ -53,35 +54,77 @@ type UnsupportedAttributePattern struct {
 	Detect func(value any) bool
 }
 
-// UnsupportedAttributesCheck bundles a set of UnsupportedAttributePattern
-// with the callback invoked once, after loading, with every match found
-// (possibly empty).
+// UnsupportedAttributesCheck bundles the detection rules with the callback
+// invoked once, after loading, with every match found (possibly empty).
+//
+// Detection combines two complementary rule sets over one walk:
+//
+//   - Patterns is a denylist: attributes the caller knows it does not honor,
+//     with optional value predicates for cases like `ports[].mode: host`.
+//   - Supported is an allowlist: when non-empty, every attribute matching
+//     none of its paths is reported too. It makes the screening fail-closed —
+//     an attribute the specification gains later is reported until the
+//     runtime deliberately declares it. schema.AttributePaths returns the
+//     full specification inventory to build it from (remove what the runtime
+//     does not implement); extension keys (x-*) are never reported by this
+//     rule set.
 type UnsupportedAttributesCheck struct {
-	Patterns []UnsupportedAttributePattern
-	Report   func([]UnsupportedAttribute)
+	Patterns  []UnsupportedAttributePattern
+	Supported []tree.Path
+	Report    func([]UnsupportedAttribute)
 }
 
 // WithUnsupportedAttributesCheck registers a set of UnsupportedAttributePattern
 // to be evaluated against the loaded model. report is invoked once, after
-// loading, with every match found (possibly empty).
+// loading, with every match found (possibly empty). Composable with
+// WithSupportedAttributes: both feed the same walk and report.
 func WithUnsupportedAttributesCheck(patterns []UnsupportedAttributePattern, report func([]UnsupportedAttribute)) func(*Options) {
 	return func(opts *Options) {
-		opts.UnsupportedAttributesCheck = &UnsupportedAttributesCheck{Patterns: patterns, Report: report}
+		if opts.UnsupportedAttributesCheck == nil {
+			opts.UnsupportedAttributesCheck = &UnsupportedAttributesCheck{}
+		}
+		opts.UnsupportedAttributesCheck.Patterns = patterns
+		opts.UnsupportedAttributesCheck.Report = report
 	}
 }
 
-// detectUnsupportedAttributes walks dict and returns every match against
-// patterns, ordered by Path. The walk itself visits map keys in Go's
+// WithSupportedAttributes declares the attribute paths the caller's runtime
+// implements: every attribute of the loaded model matching none of them is
+// reported, alongside any WithUnsupportedAttributesCheck findings, through
+// the same report callback (report may be nil when the other option already
+// set one). Extension keys (x-*) are never reported.
+//
+// This is the fail-closed side of the check: built by removing the
+// unimplemented paths from schema.AttributePaths, it keeps reporting every
+// newly-specified attribute until the runtime deliberately wires it in.
+func WithSupportedAttributes(supported []tree.Path, report func([]UnsupportedAttribute)) func(*Options) {
+	return func(opts *Options) {
+		if opts.UnsupportedAttributesCheck == nil {
+			opts.UnsupportedAttributesCheck = &UnsupportedAttributesCheck{}
+		}
+		opts.UnsupportedAttributesCheck.Supported = supported
+		if report != nil {
+			opts.UnsupportedAttributesCheck.Report = report
+		}
+	}
+}
+
+// detectUnsupportedAttributes walks dict once and returns every finding from
+// both rule sets, ordered by Path. The walk itself visits map keys in Go's
 // randomized order, so results are sorted here for deterministic output.
-func detectUnsupportedAttributes(dict map[string]any, patterns []UnsupportedAttributePattern) []UnsupportedAttribute {
-	findings := walkUnsupportedAttributes(dict, tree.NewPath(), patterns)
+func detectUnsupportedAttributes(dict map[string]any, check *UnsupportedAttributesCheck) []UnsupportedAttribute {
+	var supported *tree.Matcher
+	if len(check.Supported) > 0 {
+		supported = tree.NewMatcher(check.Supported...)
+	}
+	findings := walkUnsupportedAttributes(dict, tree.NewPath(), check.Patterns, supported)
 	slices.SortFunc(findings, func(a, b UnsupportedAttribute) int {
 		return cmp.Compare(a.Path, b.Path)
 	})
 	return findings
 }
 
-func walkUnsupportedAttributes(value any, p tree.Path, patterns []UnsupportedAttributePattern) []UnsupportedAttribute {
+func walkUnsupportedAttributes(value any, p tree.Path, patterns []UnsupportedAttributePattern, supported *tree.Matcher) []UnsupportedAttribute {
 	matched := false
 	for _, pattern := range patterns {
 		if !p.Matches(pattern.Path) {
@@ -102,11 +145,27 @@ func walkUnsupportedAttributes(value any, p tree.Path, patterns []UnsupportedAtt
 	switch v := value.(type) {
 	case map[string]any:
 		for k, e := range v {
-			findings = append(findings, walkUnsupportedAttributes(e, p.Next(k), patterns)...)
+			next := p.Next(k)
+			// Extension keys are specification-blessed escape hatches: the
+			// allowlist never reports them nor anything underneath (deny
+			// patterns still apply below, so the walk continues without the
+			// matcher).
+			if strings.HasPrefix(k, "x-") {
+				findings = append(findings, walkUnsupportedAttributes(e, next, patterns, nil)...)
+				continue
+			}
+			// allowlist screening: an attribute neither declared (exact
+			// match) nor holding declared attributes deeper (MayContain) is
+			// reported once, undescended
+			if supported != nil && !supported.Matches(next) && !supported.MayContain(next) {
+				findings = append(findings, UnsupportedAttribute{Path: next, Value: e})
+				continue
+			}
+			findings = append(findings, walkUnsupportedAttributes(e, next, patterns, supported)...)
 		}
 	case []any:
 		for _, e := range v {
-			findings = append(findings, walkUnsupportedAttributes(e, p.Next(tree.PathMatchList), patterns)...)
+			findings = append(findings, walkUnsupportedAttributes(e, p.Next(tree.PathMatchList), patterns, supported)...)
 		}
 	}
 	return findings
