@@ -100,6 +100,10 @@ type Options struct {
 	// MaxNodeVisits caps total YAML node visits during reset/override resolution.
 	// Zero means use the default. Useful for very large compose files that exceed the default cap.
 	MaxNodeVisits int
+	// UnsupportedAttributesCheck detects caller-supplied patterns identifying
+	// compose-file attributes not honored by the caller's runtime. See
+	// WithUnsupportedAttributesCheck.
+	UnsupportedAttributesCheck *UnsupportedAttributesCheck
 }
 
 var (
@@ -211,6 +215,7 @@ func (o *Options) clone() *Options {
 		ResourceLoaders:            o.ResourceLoaders,
 		KnownExtensions:            o.KnownExtensions,
 		Listeners:                  o.Listeners,
+		UnsupportedAttributesCheck: o.UnsupportedAttributesCheck,
 	}
 }
 
@@ -591,6 +596,14 @@ func load(ctx context.Context, configDetails types.ConfigDetails, opts *Options,
 
 	if !opts.SkipValidation && opts.projectName == "" {
 		return nil, errors.New("project name must not be empty")
+	}
+
+	// runs here, once, on the fully merged model (loadYamlModel recurses once
+	// per `include:`d file): unlike validation.Validate, this is a batch scan
+	// with no per-file/fail-fast need, so it must not ride along on
+	// loadYamlModel's recursive call site or it fires once per included file.
+	if check := opts.UnsupportedAttributesCheck; check != nil && check.Report != nil {
+		check.Report(detectUnsupportedAttributes(dict, check))
 	}
 
 	if !opts.SkipNormalization {
