@@ -602,8 +602,8 @@ func load(ctx context.Context, configDetails types.ConfigDetails, opts *Options,
 	// per `include:`d file): unlike validation.Validate, this is a batch scan
 	// with no per-file/fail-fast need, so it must not ride along on
 	// loadYamlModel's recursive call site or it fires once per included file.
-	if check := opts.UnsupportedAttributesCheck; check != nil {
-		check.Report(detectUnsupportedAttributes(dict, check.Patterns))
+	if check := opts.UnsupportedAttributesCheck; check != nil && check.Report != nil {
+		check.Report(detectUnsupportedAttributes(dict, check))
 	}
 
 	if !opts.SkipNormalization {
